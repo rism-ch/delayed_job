@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.add_dependency 'activesupport', ['>= 3.0', '< 5.1']
-  spec.authors        = []
+  spec.authors        = ["Bundler Is Broken Sorry Guys"]
   spec.description    = 'Delayed_job (or DJ) encapsulates the common pattern of asynchronously executing longer tasks in the background. It is a direct extraction from Shopify where the job table is responsible for a multitude of core tasks.'
   spec.email          = ['brian@collectiveidea.com']
   spec.files          = %w[CHANGELOG.md CONTRIBUTING.md LICENSE.md README.md Rakefile delayed_job.gemspec]
