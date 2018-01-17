@@ -2,30 +2,32 @@ require 'timeout'
 require 'active_support/dependencies'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/class/attribute_accessors'
+require 'active_support/hash_with_indifferent_access'
+require 'active_support/core_ext/hash/indifferent_access'
 require 'logger'
 require 'benchmark'
 
 module Delayed
   class Worker # rubocop:disable ClassLength
-    DEFAULT_LOG_LEVEL        = 'info'
+    DEFAULT_LOG_LEVEL        = 'info'.freeze
     DEFAULT_SLEEP_DELAY      = 5
     DEFAULT_MAX_ATTEMPTS     = 25
     DEFAULT_MAX_RUN_TIME     = 4.hours
     DEFAULT_DEFAULT_PRIORITY = 0
     DEFAULT_DELAY_JOBS       = true
-    DEFAULT_QUEUES           = []
-    DEFAULT_QUEUE_ATTRIBUTES = []
+    DEFAULT_QUEUES           = [].freeze
+    DEFAULT_QUEUE_ATTRIBUTES = HashWithIndifferentAccess.new.freeze
     DEFAULT_READ_AHEAD       = 5
 
     cattr_accessor :min_priority, :max_priority, :max_attempts, :max_run_time,
                    :default_priority, :sleep_delay, :logger, :delay_jobs, :queues,
                    :read_ahead, :plugins, :destroy_failed_jobs, :exit_on_complete,
-                   :default_log_level, :queue_attributes
+                   :default_log_level
 
     # Named queue into which jobs are enqueued by default
     cattr_accessor :default_queue_name
 
-    cattr_reader :backend
+    cattr_reader :backend, :queue_attributes
 
     # name_prefix is ignored if name is set directly
     attr_accessor :name_prefix
@@ -42,8 +44,6 @@ module Delayed
       self.read_ahead        = DEFAULT_READ_AHEAD
       @lifecycle             = nil
     end
-
-    reset
 
     # Add or remove plugins in this list before the worker is instantiated
     self.plugins = [Delayed::Plugins::ClearLocks]
@@ -69,6 +69,11 @@ module Delayed
       end
       @@backend = backend # rubocop:disable ClassVars
       silence_warnings { ::Delayed.const_set(:Job, backend) }
+    end
+
+    # rubocop:disable ClassVars
+    def self.queue_attributes=(val)
+      @@queue_attributes = val.with_indifferent_access
     end
 
     def self.guess_backend
@@ -229,6 +234,8 @@ module Delayed
       job_say job, format('COMPLETED after %.4f', runtime)
       return true # did work
     rescue DeserializationError => error
+      job_say job, "FAILED permanently with #{error.class.name}: #{error.message}", 'error'
+
       job.error = error
       failed(job)
     rescue Exception => error # rubocop:disable RescueException
@@ -264,7 +271,7 @@ module Delayed
     end
 
     def job_say(job, text, level = default_log_level)
-      text = "Job #{job.name} (id=#{job.id}) #{text}"
+      text = "Job #{job.name} (id=#{job.id})#{say_queue(job.queue)} #{text}"
       say text, level
     end
 
@@ -288,6 +295,10 @@ module Delayed
     end
 
   protected
+
+    def say_queue(queue)
+      " (queue=#{queue})" if queue
+    end
 
     def handle_failed_job(job, error)
       job.error = error
@@ -316,8 +327,14 @@ module Delayed
 
     def reload!
       return unless self.class.reload_app?
-      ActionDispatch::Reloader.cleanup!
-      ActionDispatch::Reloader.prepare!
+      if defined?(ActiveSupport::Reloader)
+        Rails.application.reloader.reload!
+      else
+        ActionDispatch::Reloader.cleanup!
+        ActionDispatch::Reloader.prepare!
+      end
     end
   end
 end
+
+Delayed::Worker.reset

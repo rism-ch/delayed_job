@@ -4,7 +4,7 @@ module Delayed
       attr_reader :options, :args
 
       def initialize(*args)
-        @options = args.extract_options!
+        @options = args.extract_options!.dup
         @args = args
       end
 
@@ -31,9 +31,8 @@ module Delayed
       end
 
       def set_priority
-        options[:priority] ||= Delayed::Worker.default_priority
-        queue_attributes = Delayed::Worker.queue_attributes.select { |queue| queue[:name].to_s == options[:queue] }
-        options[:priority] = queue_attributes.first[:priority] if queue_attributes.any?
+        queue_attribute = Delayed::Worker.queue_attributes[options[:queue]]
+        options[:priority] ||= (queue_attribute && queue_attribute[:priority]) || Delayed::Worker.default_priority
       end
 
       def handle_deprecation
@@ -43,8 +42,11 @@ module Delayed
           options[:run_at]   = args[1]
         end
 
-        return if options[:payload_object].respond_to?(:perform)
-        raise ArgumentError, 'Cannot enqueue items which do not respond to perform'
+        # rubocop:disable GuardClause
+        unless options[:payload_object].respond_to?(:perform)
+          raise ArgumentError, 'Cannot enqueue items which do not respond to perform'
+        end
+        # rubocop:enabled GuardClause
       end
     end
   end
