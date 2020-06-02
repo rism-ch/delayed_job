@@ -3,7 +3,13 @@ source 'https://rubygems.org'
 gem 'rake'
 
 platforms :ruby do
-  gem 'sqlite3'
+  # Rails 5.1 is the first to work with sqlite 1.4
+  # Rails 6 now requires sqlite 1.4
+  if ENV['RAILS_VERSION'] && ENV['RAILS_VERSION'].split.last < '5.1'
+    gem 'sqlite3', '< 1.4'
+  else
+    gem 'sqlite3'
+  end
 end
 
 platforms :jruby do
@@ -17,7 +23,7 @@ platforms :jruby do
   if ENV['RAILS_VERSION'] == 'edge'
     gem 'railties', :github => 'rails/rails'
   else
-    gem 'railties', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 5.2'])
+    gem 'railties', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 5.3'])
   end
 end
 
@@ -30,8 +36,8 @@ group :test do
     gem 'actionmailer', :github => 'rails/rails'
     gem 'activerecord', :github => 'rails/rails'
   else
-    gem 'actionmailer', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 5.2'])
-    gem 'activerecord', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 5.2'])
+    gem 'actionmailer', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 5.3'])
+    gem 'activerecord', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 5.3'])
   end
 
   gem 'coveralls', :require => false
